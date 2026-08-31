@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Agent API — Test Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #eef1f5;
+    --surface: #ffffff;
+    --surface-sunken: #f5f7fa;
+    --ink: #14181f;
+    --ink-muted: #5b6270;
+    --ink-faint: #8b91a0;
+    --line: #dde2ea;
+    --accent: #3a5ba0;
+    --accent-ink: #ffffff;
+    --gold: #c98a02;
+    --gold-soft: #fbf1dc;
+    --green: #2f7a4d;
+    --green-soft: #e9f5ee;
+    --error: #b3413a;
+    --error-soft: #fbeceb;
+    --radius: 10px;
+    --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); min-height: 100vh; padding: 40px 20px 80px; }
+  .shell { max-width: 720px; margin: 0 auto; }
+
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: 0.12em; color: var(--gold); font-weight: 600; margin: 0 0 6px; }
+  h1 { font-size: 26px; font-weight: 700; margin: 0 0 6px; letter-spacing: -0.01em; }
+  .subtitle { color: var(--ink-muted); font-size: 14px; margin: 0 0 24px; }
+
+  /* --- API key panel --- */
+  .key-panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
+  .key-row { display: flex; align-items: center; gap: 10px; }
+  .key-row input[type="password"], .key-row input[type="text"] {
+    flex: 1; border: none; outline: none; background: transparent;
+    font-family: var(--mono); font-size: 13px; color: var(--ink); padding: 6px 0;
+  }
+  .key-row input::placeholder { color: var(--ink-faint); }
+  .icon-btn { background: none; border: none; cursor: pointer; color: var(--ink-faint); font-family: var(--mono); font-size: 11px; padding: 4px 8px; }
+  .icon-btn:hover { color: var(--ink); }
+
+  .badge { font-family: var(--mono); font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .badge.detected { background: var(--green-soft); color: var(--green); }
+  .badge.unknown { background: var(--error-soft); color: var(--error); }
+  .badge.idle { background: var(--surface-sunken); color: var(--ink-faint); }
+
+  .key-hint { font-size: 11px; color: var(--ink-faint); margin-top: 8px; font-family: var(--mono); }
+
+  /* --- mode tabs --- */
+  .tabs { display: flex; gap: 4px; margin-bottom: 16px; background: var(--surface-sunken); border-radius: 8px; padding: 3px; width: fit-content; }
+  .tab { font-family: var(--mono); font-size: 12px; font-weight: 600; padding: 7px 16px; border-radius: 6px; cursor: pointer; color: var(--ink-muted); border: none; background: transparent; }
+  .tab.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(20,24,31,0.08); }
+
+  details.advanced { margin-bottom: 20px; font-size: 13px; }
+  details.advanced summary { cursor: pointer; color: var(--ink-muted); font-family: var(--mono); font-size: 12px; user-select: none; }
+  .advanced-body { margin-top: 10px; display: flex; gap: 10px; align-items: center; }
+  .advanced-body label { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
+  .advanced-body input { flex: 1; font-family: var(--mono); font-size: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); }
+  .advanced-body textarea { flex: 1; font-family: var(--mono); font-size: 12px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); resize: vertical; line-height: 1.5; }
+  .advanced-body textarea::placeholder { color: var(--ink-faint); }
+
+  /* --- chat mode --- */
+  .chat-log { display: none; flex-direction: column; gap: 12px; margin-bottom: 16px; min-height: 40px; }
+  .chat-log.active { display: flex; }
+  .bubble { max-width: 85%; padding: 12px 15px; border-radius: 12px; font-size: 14px; line-height: 1.55; }
+  .bubble.user { align-self: flex-end; background: var(--accent); color: var(--accent-ink); border-bottom-right-radius: 3px; }
+  .bubble.assistant { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-bottom-left-radius: 3px; }
+  .bubble strong { font-weight: 600; }
+
+  .chat-input-row { display: none; gap: 8px; margin-bottom: 12px; }
+  .chat-input-row.active { display: flex; }
+  .chat-input-row textarea {
+    flex: 1; resize: none; border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
+    font-family: var(--sans); font-size: 14px; color: var(--ink); background: var(--surface); min-height: 44px;
+  }
+  .chat-input-row textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+
+  /* --- research mode console --- */
+  .console { display: none; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 4px; box-shadow: 0 1px 2px rgba(20,24,31,0.04); margin-bottom: 12px; }
+  .console.active { display: block; }
+  .prompt-row { display: flex; align-items: center; gap: 10px; padding: 10px 12px; }
+  .prompt-glyph { font-family: var(--mono); color: var(--accent); font-weight: 600; font-size: 16px; flex-shrink: 0; }
+  .prompt-row input[type="text"] { flex: 1; border: none; outline: none; background: transparent; font-family: var(--mono); font-size: 15px; color: var(--ink); padding: 6px 0; }
+  .controls-row { display: flex; gap: 8px; padding: 8px 8px 8px 34px; border-top: 1px solid var(--surface-sunken); }
+  select { font-family: var(--mono); font-size: 12px; color: var(--ink-muted); background: var(--surface-sunken); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; cursor: pointer; }
+
+  .run-btn { margin-left: auto; font-family: var(--mono); font-size: 12px; font-weight: 600; letter-spacing: 0.04em; background: var(--accent); color: var(--accent-ink); border: none; border-radius: 6px; padding: 7px 16px; cursor: pointer; }
+  .run-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .send-btn { font-family: var(--mono); font-size: 12px; font-weight: 600; background: var(--accent); color: var(--accent-ink); border: none; border-radius: 8px; padding: 0 18px; cursor: pointer; }
+  .send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .status-box { display: none; align-items: center; gap: 12px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 16px; font-family: var(--mono); font-size: 13px; color: var(--ink-muted); }
+  .status-box.active { display: flex; }
+  .spinner { width: 14px; height: 14px; border: 2px solid var(--line); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .timer { margin-left: auto; color: var(--ink-faint); }
+
+  .error-box { display: none; padding: 14px 16px; background: var(--error-soft); border: 1px solid var(--error); border-radius: var(--radius); margin-bottom: 16px; }
+  .error-box.active { display: block; }
+  .error-box .err-title { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--error); margin: 0 0 4px; }
+  .error-box .err-detail { font-size: 13px; color: var(--ink); margin: 0; }
+
+  .result { display: none; }
+  .result.active { display: block; }
+  .answer-card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 24px; margin-bottom: 20px; font-size: 15px; line-height: 1.65; }
+  .answer-card h3 { font-size: 14px; margin: 18px 0 8px; }
+  .answer-card h3:first-child { margin-top: 0; }
+  .answer-card p { margin: 0 0 12px; }
+  .answer-card p:last-child { margin-bottom: 0; }
+  .answer-card strong { font-weight: 600; }
+  .answer-card table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 13.5px; }
+  .answer-card th { text-align: left; font-family: var(--mono); font-size: 11px; color: var(--ink-muted); background: var(--surface-sunken); padding: 8px 10px; border: 1px solid var(--line); }
+  .answer-card td { padding: 8px 10px; border: 1px solid var(--line); vertical-align: top; }
+
+  .sources-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; color: var(--ink-faint); margin: 0 0 10px; text-transform: uppercase; }
+  .source-card { display: flex; gap: 12px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 8px; text-decoration: none; color: inherit; }
+  .source-card:hover { border-color: var(--gold); }
+  .source-num { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--gold); background: var(--gold-soft); border-radius: 5px; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+  .source-body { min-width: 0; }
+  .source-title { font-size: 13.5px; font-weight: 600; margin: 0 0 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .source-domain { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); margin: 0; }
+
+  .suggestions { display: none; flex-wrap: wrap; gap: 6px; margin-bottom: 16px; }
+  .suggestions.active { display: flex; }
+  .sugg-chip { font-size: 12px; color: var(--ink-muted); background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 5px 12px; cursor: pointer; }
+  .sugg-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--ink-faint); font-size: 13px; font-family: var(--mono); }
+  .footer-note { text-align: center; font-size: 12px; color: var(--ink-faint); margin-top: 32px; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <p class="eyebrow">AI AGENT API</p>
+    <h1>Test console</h1>
+    <p class="subtitle">Bring your own key — Claude, OpenAI, Gemini, or Groq. Nothing is stored.</p>
+
+    <div class="key-panel">
+      <div class="key-row">
+        <span class="prompt-glyph" style="font-size:14px">🔑</span>
+        <input type="password" id="apiKey" placeholder="Paste your API key (sk-ant-..., sk-..., AIzaSy..., gsk_...)" />
+        <button class="icon-btn" id="toggleKeyVisibility">SHOW</button>
+        <span class="badge idle" id="providerBadge">no key yet</span>
+      </div>
+      <p class="key-hint">Sent directly through to your key's provider on each request — never logged, never stored.</p>
+    </div>
+
+    <details class="advanced">
+      <summary>Advanced: API base URL &amp; system prompt</summary>
+      <div class="advanced-body">
+        <label>Base URL</label>
+        <input type="text" id="apiBase" value="https://web-scraping-j0pa.onrender.com" />
+      </div>
+      <div class="advanced-body" style="align-items: flex-start; margin-top: 10px;">
+        <label style="padding-top: 8px;">System prompt</label>
+        <textarea id="systemPrompt" rows="3" placeholder="Leave empty to use the default. Research mode defaults to a 'sources only, no outside knowledge' instruction; Chat mode has no default — the model behaves however it normally would."></textarea>
+      </div>
+    </details>
+
+    <div class="tabs">
+      <button class="tab active" id="tabChat" data-mode="chat">CHAT</button>
+      <button class="tab" id="tabResearch" data-mode="research">RESEARCH</button>
+    </div>
+
+    <!-- Chat mode -->
+    <div class="chat-log" id="chatLog"></div>
+    <div class="suggestions" id="suggestions"></div>
+    <div class="chat-input-row active" id="chatInputRow">
+      <textarea id="chatInput" placeholder="Type a message… (Enter to send, Shift+Enter for newline)"></textarea>
+      <button class="send-btn" id="sendBtn">SEND →</button>
+    </div>
+
+    <!-- Research mode -->
+    <div class="console" id="researchConsole">
+      <div class="prompt-row">
+        <span class="prompt-glyph">›</span>
+        <input type="text" id="queryInput" placeholder="best budget wireless earbuds 2026" />
+      </div>
+      <div class="controls-row">
+        <select id="numSources">
+          <option value="3">3 sources</option>
+          <option value="5" selected>5 sources</option>
+          <option value="8">8 sources</option>
+        </select>
+        <button class="run-btn" id="runBtn">RUN →</button>
+      </div>
+    </div>
+
+    <div class="status-box" id="statusBox">
+      <div class="spinner"></div>
+      <span id="statusText">Thinking…</span>
+      <span class="timer" id="timer">0.0s</span>
+    </div>
+
+    <div class="error-box" id="errorBox">
+      <p class="err-title">REQUEST FAILED</p>
+      <p class="err-detail" id="errorDetail"></p>
+    </div>
+
+    <div class="result" id="result">
+      <div class="answer-card" id="answerCard"></div>
+      <p class="sources-label" id="sourcesLabel"></p>
+      <div id="sourcesList"></div>
+    </div>
+
+    <div class="empty-state" id="emptyState">Paste your API key above, then start chatting or run a research query.</div>
+
+    <p class="footer-note">POST /chat · POST /research — both use the key pasted above, nothing server-side</p>
+  </div>
+
+<script>
+  const apiKeyInput = document.getElementById('apiKey');
+  const toggleKeyBtn = document.getElementById('toggleKeyVisibility');
+  const providerBadge = document.getElementById('providerBadge');
+  const apiBaseInput = document.getElementById('apiBase');
+  const systemPromptInput = document.getElementById('systemPrompt');
+  const tabChat = document.getElementById('tabChat');
+  const tabResearch = document.getElementById('tabResearch');
+  const chatLog = document.getElementById('chatLog');
+  const chatInputRow = document.getElementById('chatInputRow');
+  const chatInput = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('sendBtn');
+  const researchConsole = document.getElementById('researchConsole');
+  const queryInput = document.getElementById('queryInput');
+  const numSources = document.getElementById('numSources');
+  const runBtn = document.getElementById('runBtn');
+  const statusBox = document.getElementById('statusBox');
+  const statusText = document.getElementById('statusText');
+  const timerEl = document.getElementById('timer');
+  const errorBox = document.getElementById('errorBox');
+  const errorDetail = document.getElementById('errorDetail');
+  const result = document.getElementById('result');
+  const answerCard = document.getElementById('answerCard');
+  const sourcesLabel = document.getElementById('sourcesLabel');
+  const sourcesList = document.getElementById('sourcesList');
+  const emptyState = document.getElementById('emptyState');
+  const suggestionsEl = document.getElementById('suggestions');
+
+  let mode = 'chat';
+  let chatHistory = [];
+  let detectTimer = null;
+  let timerInterval = null;
+
+  function base() { return apiBaseInput.value.trim().replace(/\/$/, ''); }
+
+  toggleKeyBtn.addEventListener('click', () => {
+    const isPassword = apiKeyInput.type === 'password';
+    apiKeyInput.type = isPassword ? 'text' : 'password';
+    toggleKeyBtn.textContent = isPassword ? 'HIDE' : 'SHOW';
+  });
+
+  apiKeyInput.addEventListener('input', () => {
+    clearTimeout(detectTimer);
+    const key = apiKeyInput.value.trim();
+    if (!key) {
+      providerBadge.className = 'badge idle';
+      providerBadge.textContent = 'no key yet';
+      return;
+    }
+    providerBadge.className = 'badge idle';
+    providerBadge.textContent = 'checking…';
+    detectTimer = setTimeout(async () => {
+      try {
+        const res = await fetch(`${base()}/detect-key`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ api_key: key })
+        });
+        const data = await res.json();
+        if (data.provider) {
+          providerBadge.className = 'badge detected';
+          providerBadge.textContent = `detected: ${data.provider}`;
+        } else {
+          providerBadge.className = 'badge unknown';
+          providerBadge.textContent = 'unrecognized key';
+        }
+      } catch {
+        providerBadge.className = 'badge unknown';
+        providerBadge.textContent = 'couldn\'t reach API';
+      }
+    }, 500);
+  });
+
+  function switchMode(newMode) {
+    mode = newMode;
+    tabChat.classList.toggle('active', mode === 'chat');
+    tabResearch.classList.toggle('active', mode === 'research');
+    chatInputRow.classList.toggle('active', mode === 'chat');
+    chatLog.classList.toggle('active', mode === 'chat' && chatHistory.length > 0);
+    suggestionsEl.classList.toggle('active', mode === 'chat' && chatHistory.length === 0);
+    researchConsole.classList.toggle('active', mode === 'research');
+    errorBox.classList.remove('active');
+    result.classList.remove('active');
+    emptyState.style.display = (mode === 'chat' && chatHistory.length > 0) ? 'none' : 'block';
+    if (mode === 'research') emptyState.style.display = 'none';
+  }
+  tabChat.addEventListener('click', () => switchMode('chat'));
+  tabResearch.addEventListener('click', () => switchMode('research'));
+
+  // Lightweight markdown-ish renderer: bold, ### headings, pipe tables, paragraphs.
+  function renderMarkdown(text) {
+    const lines = text.split('\n');
+    let html = '';
+    let i = 0;
+    function inline(s) { return s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); }
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.trim().startsWith('###')) { html += `<h3>${inline(line.replace(/^#+\s*/, ''))}</h3>`; i++; continue; }
+      if (line.includes('|') && line.trim().startsWith('|')) {
+        const tableLines = [];
+        while (i < lines.length && lines[i].includes('|')) { tableLines.push(lines[i]); i++; }
+        const rows = tableLines
+          .map(l => l.split('|').map(c => c.trim()).filter((c, idx, arr) => !(idx === 0 && c === '') && !(idx === arr.length - 1 && c === '')))
+          .filter(cells => !cells.every(c => /^:?-+:?$/.test(c)));
+        if (rows.length) {
+          html += '<table><thead><tr>';
+          rows[0].forEach(c => html += `<th>${inline(c)}</th>`);
+          html += '</tr></thead><tbody>';
+          rows.slice(1).forEach(r => { html += '<tr>'; r.forEach(c => html += `<td>${inline(c)}</td>`); html += '</tr>'; });
+          html += '</tbody></table>';
+        }
+        continue;
+      }
+      if (line.trim() === '') { i++; continue; }
+      let para = line; i++;
+      while (i < lines.length && lines[i].trim() !== '' && !lines[i].includes('|') && !lines[i].trim().startsWith('###')) { para += ' ' + lines[i]; i++; }
+      html += `<p>${inline(para)}</p>`;
+    }
+    return html;
+  }
+
+  function getDomain(url) { try { return new URL(url).hostname.replace('www.', ''); } catch { return url; } }
+
+  function startTimer() {
+    let seconds = 0;
+    timerEl.textContent = '0.0s';
+    timerInterval = setInterval(() => { seconds += 0.1; timerEl.textContent = seconds.toFixed(1) + 's'; }, 100);
+  }
+  function stopTimer() { clearInterval(timerInterval); }
+
+  function requireKey() {
+    const key = apiKeyInput.value.trim();
+    if (!key) { apiKeyInput.focus(); return null; }
+    return key;
+  }
+
+  // --- Chat mode ---
+  function renderChatLog() {
+    chatLog.innerHTML = '';
+    chatHistory.forEach(m => {
+      const div = document.createElement('div');
+      div.className = `bubble ${m.role}`;
+      div.innerHTML = m.role === 'assistant' ? renderMarkdown(m.content) : m.content.replace(/</g, '&lt;');
+      chatLog.appendChild(div);
+    });
+    chatLog.classList.toggle('active', chatHistory.length > 0);
+    suggestionsEl.classList.remove('active');
+    emptyState.style.display = chatHistory.length > 0 ? 'none' : 'block';
+  }
+
+  async function sendChat() {
+    const key = requireKey();
+    if (!key) return;
+    const text = chatInput.value.trim();
+    if (!text) { chatInput.focus(); return; }
+
+    chatHistory.push({ role: 'user', content: text });
+    chatInput.value = '';
+    renderChatLog();
+    errorBox.classList.remove('active');
+    sendBtn.disabled = true;
+    statusText.textContent = 'Thinking…';
+    statusBox.classList.add('active');
+    startTimer();
+
+    try {
+      const sysPrompt = systemPromptInput.value.trim();
+      // System prompt is sent with the request but kept out of chatHistory itself,
+      // so it never renders as a visible bubble and isn't duplicated every turn.
+      const outgoing = sysPrompt ? [{ role: 'system', content: sysPrompt }, ...chatHistory] : chatHistory;
+
+      const res = await fetch(`${base()}/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: outgoing, api_key: key })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Server returned ${res.status}`);
+
+      chatHistory.push({ role: 'assistant', content: data.response });
+      renderChatLog();
+      providerBadge.className = 'badge detected';
+      providerBadge.textContent = `${data.provider_detected} · ${data.model_used}`;
+    } catch (err) {
+      errorDetail.textContent = err.message || 'Something went wrong.';
+      errorBox.classList.add('active');
+    } finally {
+      stopTimer();
+      statusBox.classList.remove('active');
+      sendBtn.disabled = false;
+    }
+  }
+  sendBtn.addEventListener('click', sendChat);
+  chatInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); }
+  });
+
+  // --- Research mode ---
+  async function runResearch() {
+    const key = requireKey();
+    if (!key) return;
+    const query = queryInput.value.trim();
+    if (!query) { queryInput.focus(); return; }
+
+    runBtn.disabled = true;
+    errorBox.classList.remove('active');
+    result.classList.remove('active');
+    emptyState.style.display = 'none';
+    statusText.textContent = 'Searching, reading sources, and writing the answer…';
+    statusBox.classList.add('active');
+    startTimer();
+
+    try {
+      const res = await fetch(`${base()}/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query,
+          api_key: key,
+          num_sources: parseInt(numSources.value, 10),
+          system_prompt: systemPromptInput.value.trim() || null
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.detail || `Server returned ${res.status}`);
+
+      answerCard.innerHTML = renderMarkdown(data.answer || '');
+      const sources = data.sources || [];
+      sourcesLabel.textContent = `Sources (${sources.length})`;
+      sourcesList.innerHTML = '';
+      sources.forEach((s, idx) => {
+        const a = document.createElement('a');
+        a.className = 'source-card'; a.href = s.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+        a.innerHTML = `<div class="source-num">${idx + 1}</div><div class="source-body"><p class="source-title">${s.title || s.url}</p><p class="source-domain">${getDomain(s.url)}</p></div>`;
+        sourcesList.appendChild(a);
+      });
+      result.classList.add('active');
+      providerBadge.className = 'badge detected';
+      providerBadge.textContent = `${data.provider_detected} · ${data.model_used}`;
+    } catch (err) {
+      errorDetail.textContent = err.message || 'Something went wrong.';
+      errorBox.classList.add('active');
+    } finally {
+      stopTimer();
+      statusBox.classList.remove('active');
+      runBtn.disabled = false;
+    }
+  }
+  runBtn.addEventListener('click', runResearch);
+  queryInput.addEventListener('keydown', e => { if (e.key === 'Enter') runResearch(); });
+
+  // --- Suggested prompts (loaded once on start) ---
+  async function loadSuggestions() {
+    try {
+      const res = await fetch(`${base()}/prompts/suggestions`);
+      const data = await res.json();
+      suggestionsEl.innerHTML = '';
+      (data.suggestions || []).slice(0, 6).forEach(s => {
+        const chip = document.createElement('button');
+        chip.className = 'sugg-chip';
+        chip.textContent = s.text.length > 50 ? s.text.slice(0, 50) + '…' : s.text;
+        chip.title = s.text;
+        chip.onclick = () => { chatInput.value = s.text; chatInput.focus(); };
+        suggestionsEl.appendChild(chip);
+      });
+      if (mode === 'chat' && chatHistory.length === 0) suggestionsEl.classList.add('active');
+    } catch { /* suggestions are optional, fail silently */ }
+  }
+  loadSuggestions();
+</script>
+</body>
+</html>

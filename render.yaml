@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: research-agent
+    env: python
+    region: singapore
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: MAX_SOURCES
+        value: "5"
+      - key: MAX_CONTENT_CHARS_PER_SOURCE
+        value: "2000"
+      - key: REQUEST_TIMEOUT_SECONDS
+        value: "15"
